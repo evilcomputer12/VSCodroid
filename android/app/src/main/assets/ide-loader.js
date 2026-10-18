@@ -96,4 +96,21 @@ function guardTrial(selection, child, timeout = 180000) {
     timer.unref();
     child.once('exit', () => clearTimeout(timer));
 }
-module.exports = {select, markHealthy, guardTrial};
+function startTrialGuard(root, id, timeout = 180000) {
+    const timer = setTimeout(() => {
+        if (!fs.existsSync(path.join(root, 'healthy-' + id))) process.exit(70);
+    }, timeout);
+    timer.unref();
+    return timer;
+}
+// The editor can survive a killed bootstrap and be adopted by a new Android
+// process. Keep the trial deadline in that survivor as well as its parent.
+const trial = process.env.VSCODROID_IDE_TRIAL_ID;
+const trialRoot = process.env.VSCODROID_IDE_TRIAL_DIR;
+delete process.env.VSCODROID_IDE_TRIAL_ID;
+delete process.env.VSCODROID_IDE_TRIAL_DIR;
+if (ID.test(trial || '') && trialRoot === path.join(__dirname, 'ide-updates')) {
+    process.execArgv = process.execArgv.filter(arg => arg !== `--require=${__filename}`);
+    startTrialGuard(trialRoot, trial);
+}
+module.exports = {select, markHealthy, guardTrial, startTrialGuard};

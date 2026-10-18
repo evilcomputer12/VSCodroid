@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
+const {spawnSync} = require('node:child_process');
 const loader = require('../../android/app/src/main/assets/ide-loader');
 function fixture(t) {
     const server = fs.mkdtempSync(path.join(os.tmpdir(), 'ide-loader-'));
@@ -57,4 +58,15 @@ test('manual rollback uses the bundled tree on the next start',t=>{
     loader.markHealthy(f.server,selected.tree);
     f.write('ide-updates/state.json',{...f.state(),pending:'bundled'});
     assert.equal(loader.select(f.server,'/apk/native').tree,path.join(f.server,'vscode-reh'));
+});
+test('the editor trial deadline does not depend on a living bootstrap',t=>{
+    const f=fixture(t), modulePath=require.resolve('../../android/app/src/main/assets/ide-loader');
+    const run=spawnSync(process.execPath,['-e',`require(${JSON.stringify(modulePath)}).startTrialGuard(${JSON.stringify(f.server)},'trial',25);setInterval(()=>{},1000);`],{timeout:5000});
+    assert.equal(run.status,70);
+});
+test('an editor with a health marker survives its independent deadline',t=>{
+    const f=fixture(t), modulePath=require.resolve('../../android/app/src/main/assets/ide-loader');
+    fs.writeFileSync(path.join(f.server,'healthy-trial'),'ok');
+    const run=spawnSync(process.execPath,['-e',`require(${JSON.stringify(modulePath)}).startTrialGuard(${JSON.stringify(f.server)},'trial',25);setTimeout(()=>process.exit(0),75);`],{timeout:5000});
+    assert.equal(run.status,0);
 });

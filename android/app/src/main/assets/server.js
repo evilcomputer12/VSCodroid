@@ -872,6 +872,11 @@ if (!fs.existsSync(rehEntryPoint)) {
     // option it stays an option, and the row names server-main.js again.
     const childEnv = { ...process.env };
     const execArgv = [...process.execArgv];
+    if (ideSelection.trial) {
+        childEnv.VSCODROID_IDE_TRIAL_ID = ideSelection.trial;
+        childEnv.VSCODROID_IDE_TRIAL_DIR = ideSelection.root;
+        execArgv.push(`--require=${path.join(SERVER_DIR, 'ide-loader.js')}`);
+    }
     const dnsProxyPath = path.join(SERVER_DIR, 'dns-proxy.js');
     try {
         require(dnsProxyPath);

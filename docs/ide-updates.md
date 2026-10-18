@@ -31,7 +31,8 @@ The updater needs approximately 1.6 GiB of free space for a download and staging
 
 The first updated launch is a trial. The Linux extension records health after
 30 seconds of activation. If that does not happen within three minutes, the
-bootstrap ends the failed server; the existing Android watchdog restarts with
+bootstrap and server each enforce that deadline, including when the launcher
+is killed. The failed server ends; the existing Android watchdog restarts with
 the previous version. A process death before the health marker also causes
 rollback on the next start. The failed digest is blocked from automatic retries.
 This is a startup health check, not proof that every extension or future feature
