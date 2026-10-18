@@ -81,7 +81,12 @@ function select(server, native) {
 }
 function markHealthy(server, runningRoot) {
     const running = read(path.join(server, 'ide-running.json'));
-    if (!ID.test(running.id || '') || path.resolve(server, running.relativeRoot) !== path.resolve(runningRoot || '.')) return;
+    if (!ID.test(running.id || '') || running.relativeRoot !== path.join('ide-updates', 'versions', running.id, 'vscode-reh')) return;
+    // Android exposes private storage through both /data/data and /data/user/0.
+    // Node's entry path and Android's filesDir can use different aliases.
+    try {
+        if (!runningRoot || fs.realpathSync(path.join(server, running.relativeRoot)) !== fs.realpathSync(runningRoot)) return;
+    } catch { return; }
     fs.writeFileSync(path.join(server, 'ide-updates', 'healthy-' + running.id), 'Editor extension host activated\n');
 }
 function guardTrial(selection, child, timeout = 180000) {

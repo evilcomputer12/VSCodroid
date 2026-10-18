@@ -52,6 +52,15 @@ test('health from another tree does not commit the trial',t=>{
     loader.markHealthy(f.server,path.join(f.server,'vscode-reh'));
     assert.equal(loader.select(f.server,'/apk/native').tree,path.join(f.server,'vscode-reh'));
 });
+test('Android private-storage aliases can confirm the same running tree',t=>{
+    const f=fixture(t);
+    const alias=path.join(f.server,'android-files-alias');
+    fs.symlinkSync(f.server,alias);
+    const selected=loader.select(f.server,'/apk/native');
+    loader.markHealthy(alias,selected.tree);
+    assert.equal(loader.select(f.server,'/apk/native').tree,selected.tree);
+    assert.equal(f.state().trial,undefined);
+});
 test('manual rollback uses the bundled tree on the next start',t=>{
     const f=fixture(t);
     const selected=loader.select(f.server,'/apk/native');

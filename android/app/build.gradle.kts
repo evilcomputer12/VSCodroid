@@ -159,8 +159,8 @@ android {
         // browser simply times out.
         @Suppress("OldTargetApi")
         targetSdk = 36
-        versionCode = 19
-        versionName = "1.5.0-linux.4"
+        versionCode = 20
+        versionName = "1.5.0-linux.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
