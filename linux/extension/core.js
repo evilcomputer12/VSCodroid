@@ -1,5 +1,6 @@
 'use strict';
 const path = require('node:path');
+const fs = require('node:fs');
 
 function paths(env = process.env, execPath = process.execPath) {
     const files = env.VSCODROID_FILES_DIR || (env.PREFIX && path.dirname(env.PREFIX));
@@ -53,4 +54,23 @@ function contextArgs(name, endpoint) {
 function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[x]));
 }
-module.exports = { paths, pythonEnv, runtimeArgs, guestArgs, dockerEndpoint, contextArgs, escapeHtml };
+function ownsGuestProcess(argv, p, canonical = fs.realpathSync) {
+    // Restored VS Code terminals omit their original creation options. Match
+    // only that terminal's live process, using our executable and rootfs.
+    try {
+        const root = argv.indexOf('-r');
+        return root > 0 && argv.includes('--kill-on-exit') &&
+            canonical(argv[0]) === canonical(path.join(p.native, 'libproot.so')) &&
+            canonical(argv[root + 1]) === canonical(p.rootfs);
+    } catch { return false; }
+}
+function guestProcessIdentity(pid, p, read = file => fs.readFileSync(file, 'utf8'), canonical = fs.realpathSync) {
+    if (!Number.isInteger(pid) || pid <= 0) return null;
+    try {
+        if (!ownsGuestProcess(read(`/proc/${pid}/cmdline`).split('\0'), p, canonical)) return null;
+        const stat = read(`/proc/${pid}/stat`);
+        const start = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/)[19];
+        return /^\d+$/.test(start || '') ? `${pid}:${start}` : null;
+    } catch { return null; }
+}
+module.exports = { paths, pythonEnv, runtimeArgs, guestArgs, dockerEndpoint, contextArgs, escapeHtml, ownsGuestProcess, guestProcessIdentity };

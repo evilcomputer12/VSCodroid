@@ -293,7 +293,7 @@ M6 (Release)   → Play Store release
      - `vscodroid.vscodroid-saf-bridge-1.11.0`, SAF storage integration
      - `vscodroid.vscodroid-process-monitor-1.4.0`, phantom process monitoring
      - `vscodroid.vscodroid-serve-network-1.3.0`, serve a dev server on the LAN
-     - `vscodroid.vscodroid-linux-0.1.0`, Debian runtime, terminal profile, tasks and Docker SSH dashboard
+     - `vscodroid.vscodroid-linux-0.3.0`, Debian runtime, terminal profile, tasks and Docker SSH dashboard
      - `vscodroid.vscodroid-linux-ui-0.1.0`, native toolbar command delivery to the browser extension host
      - `vscodroid.vscodroid-editor-menus-1.0.0`, Select All in the editor context menu, declared without code so Ctrl+A never waits on an extension host
    - [x] `extensions.json` manifest auto-generated on first run

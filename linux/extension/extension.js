@@ -11,6 +11,7 @@ function activate(context) {
     try { p = core.paths(); } catch { return; }
     const output = vscode.window.createOutputChannel('VSCodroid Linux');
     const sessions = new Set();
+    const stoppingTerminals = new WeakSet();
     const jobs = new Set();
     let panel, busy = false, health = null, ideJob;
     const status = vscode.window.createStatusBarItem('linuxRuntime', vscode.StatusBarAlignment.Left, 20);
@@ -57,6 +58,30 @@ function activate(context) {
     function stopJob(child) {
         // Only a process group created by this extension. Never scan or kill by name.
         try { process.kill(-child.pid, 'SIGTERM'); } catch { child.kill('SIGTERM'); }
+        const timer = setTimeout(() => {
+            if (child.exitCode === null && child.signalCode === null) {
+                try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); }
+            }
+        }, 1000);
+        timer.unref(); child.once('exit', () => clearTimeout(timer));
+    }
+    function stopTerminal(terminal, dispose = true) {
+        if (stoppingTerminals.has(terminal)) return;
+        stoppingTerminals.add(terminal);
+        // PRoot forwards ordinary signals to an interactive shell, which can
+        // ignore them. A bounded fallback ends the tracer and its tracees.
+        terminal.processId.then(pid => {
+            const identity = core.guestProcessIdentity(pid, p);
+            if (!identity) return;
+            try { process.kill(pid, 'SIGTERM'); } catch { return; }
+            const timer = setTimeout(() => {
+                if (core.guestProcessIdentity(pid, p) === identity) {
+                    try { process.kill(pid, 'SIGKILL'); } catch {}
+                }
+            }, 1000);
+            timer.unref();
+        }).catch(() => {});
+        if (dispose) terminal.dispose();
     }
     function run(action, args = [], timeout = 600000, progress, token) {
         return new Promise((resolve, reject) => {
@@ -254,7 +279,7 @@ section{border:1px solid var(--vscode-panel-border);border-radius:8px;padding:20
         home:() => { trusted(); fs.mkdirSync(p.home,{recursive:true}); return vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(p.home), false); },
         copy:() => vscode.commands.executeCommand('workbench.action.terminal.copySelection'),
         paste:() => vscode.commands.executeCommand('workbench.action.terminal.paste'),
-        stop:() => { for (const terminal of sessions) terminal.dispose(); for (const job of jobs) stopJob(job); update(); },
+        stop:() => { for (const terminal of sessions) stopTerminal(terminal); for (const job of jobs) stopJob(job); update(); },
         restart:() => { trusted(); commands.stop(); return openTerminal(); },
         cleanCache:async () => { trusted(); if (busy) throw new Error('Wait for setup to finish.'); await run('exec',['--','apt-get','clean'],30000); await diagnostics(); }
     };
@@ -274,13 +299,26 @@ section{border:1px solid var(--vscode-panel-border);border-radius:8px;padding:20
         terminal.creationOptions.shellArgs.includes(p.files) &&
         terminal.creationOptions.shellArgs.some(arg => typeof arg === 'string' &&
             /\/vscodroid\.vscodroid-linux-\d+\.\d+\.\d+\/runtime\.py$/.test(arg));
+    async function adoptTerminal(terminal) {
+        let owned = ownsTerminal(terminal);
+        if (!owned) {
+            try {
+                const pid = await terminal.processId;
+                if (!Number.isInteger(pid) || pid <= 0) return;
+                owned = core.ownsGuestProcess(fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0'), p);
+            } catch { return; }
+        }
+        if (owned && vscode.window.terminals.includes(terminal)) { sessions.add(terminal); update(); }
+    }
     // Existing terminals can precede extension activation after a window reload.
-    for (const terminal of vscode.window.terminals) if (ownsTerminal(terminal)) sessions.add(terminal);
+    for (const terminal of vscode.window.terminals) adoptTerminal(terminal);
     context.subscriptions.push(vscode.window.onDidOpenTerminal(terminal => {
-        if (ownsTerminal(terminal)) sessions.add(terminal);
-        update();
+        adoptTerminal(terminal);
     }));
-    context.subscriptions.push(vscode.window.onDidCloseTerminal(terminal => {sessions.delete(terminal); update();}));
+    context.subscriptions.push(vscode.window.onDidCloseTerminal(terminal => {
+        if (sessions.has(terminal)) stopTerminal(terminal, false);
+        sessions.delete(terminal); update();
+    }));
     context.subscriptions.push(vscode.tasks.registerTaskProvider('vscodroid-linux', {
         provideTasks:() => [],
         resolveTask:task => {

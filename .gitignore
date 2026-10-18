@@ -193,7 +193,7 @@ toolchain-zips/
 /output/
 /linux/extension/__pycache__/
 /tests/linux/__pycache__/
-/android/app/src/main/assets/extensions/vscodroid.vscodroid-linux-0.1.0/
+/android/app/src/main/assets/extensions/vscodroid.vscodroid-linux-[0-9]*/
 /toolchains/linux/
 /android/app/src/main/jniLibs/arm64-v8a/.libnode-version
-/android/app/src/main/assets/extensions/vscodroid.vscodroid-linux-ui-0.1.0/
+/android/app/src/main/assets/extensions/vscodroid.vscodroid-linux-ui-[0-9]*/
