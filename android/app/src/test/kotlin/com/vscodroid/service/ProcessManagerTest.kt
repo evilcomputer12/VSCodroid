@@ -2560,6 +2560,42 @@ class AdoptionTest {
         )
     }
 
+    @Test
+    fun `an updated editor is adopted using its selected source commit`() {
+        val relative = "ide-updates/versions/${"b".repeat(64)}/vscode-reh"
+        File(tempDir, "server/$relative").mkdirs()
+        File(tempDir, "server/$relative/product.json").writeText("""{"commit":"updated"}""")
+        File(tempDir, "server/ide-running.json").writeText(
+            """{"baseCommit":"$commit","relativeRoot":"$relative"}""",
+        )
+        val holder = serving(200, reports = "updated")
+        recordEditorServer(pid = 4242, port = holder.port)
+        assertTrue(manager.startServer())
+        assertTrue(manager.isAdopted())
+    }
+
+    @Test
+    fun `an updater note cannot redirect the identity read outside its version directory`() {
+        File(tempDir, "server/ide-running.json").writeText(
+            """{"baseCommit":"$commit","relativeRoot":"../../outside"}""",
+        )
+        val holder = serving(200)
+        recordEditorServer(pid = 4242, port = holder.port)
+        assertTrue(manager.startServer())
+        assertTrue(manager.isAdopted())
+    }
+
+    @Test
+    fun `an updater note from a different APK baseline is ignored`() {
+        File(tempDir, "server/ide-running.json").writeText(
+            """{"baseCommit":"older","relativeRoot":"ide-updates/versions/${"b".repeat(64)}/vscode-reh"}""",
+        )
+        val holder = serving(200)
+        recordEditorServer(pid = 4242, port = holder.port)
+        assertTrue(manager.startServer())
+        assertTrue(manager.isAdopted())
+    }
+
     /** Spawns over a holder with no note, which is not ours to adopt, and waits for the exit. */
     private fun spawnOverStranger() {
         serving(200)

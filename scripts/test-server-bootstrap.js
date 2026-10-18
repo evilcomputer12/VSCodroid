@@ -49,6 +49,7 @@ function fixture(productJson, { serverMain = 'process.exit(0);\n', dnsProxy = fa
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vscodroid-bootstrap-'));
     fs.mkdirSync(path.join(dir, 'vscode-reh', 'out'), { recursive: true });
     fs.copyFileSync(SERVER_JS, path.join(dir, 'server.js'));
+    fs.copyFileSync(path.join(ASSETS, 'ide-loader.js'), path.join(dir, 'ide-loader.js'));
     if (typeof dnsProxy === 'string') {
         fs.writeFileSync(path.join(dir, 'dns-proxy.js'), dnsProxy);
     } else if (dnsProxy) {

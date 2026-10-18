@@ -1386,7 +1386,16 @@ class ProcessManager(private val context: Context) {
      * back to accepting whoever answers.
      */
     private fun bundledServerCommit(): String? = try {
-        File(Environment.getServerDir(context), REH_PRODUCT_FILE)
+        val serverDir = File(Environment.getServerDir(context))
+        val bundledProduct = File(serverDir, REH_PRODUCT_FILE)
+        val runningNote = File(serverDir, "ide-running.json")
+        val running = if (runningNote.isFile) JSONObject(runningNote.readText()) else null
+        val relativeRoot = running?.optString("relativeRoot").orEmpty()
+        val baseCommit = JSONObject(bundledProduct.readText()).optString("commit")
+        val product = if (running?.optString("baseCommit") == baseCommit &&
+            Regex("ide-updates/versions/[a-f0-9]{64}/vscode-reh").matches(relativeRoot)
+        ) File(serverDir, "$relativeRoot/product.json") else bundledProduct
+        product
             .takeIf { it.isFile }
             ?.let { JSONObject(it.readText()).optString("commit") }
             ?.trim()

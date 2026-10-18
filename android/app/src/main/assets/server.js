@@ -21,7 +21,11 @@ const PORT = parseInt(args.port) || 13337;
 const LOG_LEVEL = args.log || 'info';
 
 const SERVER_DIR = path.dirname(__filename);
-const REH_DIR = path.join(SERVER_DIR, 'vscode-reh');
+const ideLoader = require('./ide-loader');
+const ideSelection = ideLoader.select(SERVER_DIR, process.env.VSCODROID_NATIVE_DIR || path.dirname(process.execPath));
+const REH_DIR = ideSelection.tree;
+process.env.VSCODROID_IDE_ROOT = REH_DIR;
+process.env.NODE_PATH = path.join(REH_DIR, 'node_modules');
 
 // The tail of the intent address the same page navigates to, with or without the
 // package a previous start pinned into it, for the same idempotence.
@@ -893,6 +897,7 @@ if (!fs.existsSync(rehEntryPoint)) {
         execArgv,
         stdio: 'inherit'
     });
+    ideLoader.guardTrial(ideSelection, server);
 
     // Who holds the port, recorded from the side that knows.
     //

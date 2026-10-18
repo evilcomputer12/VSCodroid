@@ -2,7 +2,7 @@
   "name": "vscodroid-linux",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "vscodroid",
   "license": "MIT",
   "engines": {
@@ -87,6 +87,14 @@
       {
         "command": "vscodroid.linux.clangd",
         "title": "Linux: Configure C/C++ Language Server"
+      },
+      {
+        "command": "vscodroid.linux.ideUpdate",
+        "title": "Linux: Check IDE Updates"
+      },
+      {
+        "command": "vscodroid.linux.ideRollback",
+        "title": "Linux: Restore Bundled IDE"
       }
     ],
     "terminal": {
@@ -137,6 +145,17 @@
           "group": "navigation@22"
         }
       ]
+    },
+    "configuration": {
+      "title": "VSCodroid Linux",
+      "properties": {
+        "vscodroid.linux.autoUpdateIDE": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Automatically check daily and download compatible Code OSS releases while the IDE is running. Apply on the next full IDE start, with rollback if startup fails."
+        }
+      }
     }
   }
 }

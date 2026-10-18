@@ -40,3 +40,14 @@ Clipboard and IME chords use an AndroidX WebMessage listener restricted to the
 current loopback editor origin and top-level frame. Toolbar commands use the
 browser extension API. Upstream token-protected clipboard fallback and navigation
 handling remain for compatibility.
+
+## IDE update lifecycle
+
+The extension's daily updater reads the upstream VSCodroid server release feed,
+verifies and adapts compatible Code OSS archives, and queues a separate server
+tree. The bootstrap selects it only at a full server start, binds APK-native
+executables, and records the running tree for Kotlin's orphan-server identity
+check. Extension-host activation earns a health marker; failed trials fall back
+on the next watchdog restart. The APK's original server is retained for manual
+recovery. See [automatic updates](ide-updates.md) for trust, compatibility and
+release-channel limits.

@@ -12,7 +12,7 @@ function activate(context) {
     const output = vscode.window.createOutputChannel('VSCodroid Linux');
     const sessions = new Set();
     const jobs = new Set();
-    let panel, busy = false, health = null;
+    let panel, busy = false, health = null, ideJob;
     const status = vscode.window.createStatusBarItem('linuxRuntime', vscode.StatusBarAlignment.Left, 20);
     status.command = 'vscodroid.linux.dashboard';
     status.name = 'Debian Linux';
@@ -20,6 +20,32 @@ function activate(context) {
     fs.mkdirSync(path.join(p.files, 'linux/tmp'), {recursive:true});
     fs.mkdirSync(p.workspace, {recursive:true});
     const installed = () => fs.existsSync(path.join(p.files, 'linux/state.json'));
+    const ideStatus = () => {
+        try { return JSON.parse(fs.readFileSync(path.join(p.files,'server/ide-updates/status.json'),'utf8')); }
+        catch { return {message:'Automatic checks are enabled. The first check runs after the editor starts.'}; }
+    };
+    async function ideUpdate(action = 'check', manual = false) {
+        if (ideJob) { if (manual) vscode.window.showInformationMessage('An IDE update check is already running.'); return; }
+        if (!manual && !vscode.workspace.getConfiguration('vscodroid.linux').get('autoUpdateIDE', true)) return;
+        await new Promise(resolve => {
+            const args = [path.join(__dirname,'ide_update.py'), '--files', p.files, action, ...(manual && action === 'check' ? ['--force'] : [])];
+            const child = cp.spawn(p.python, args, {env:core.pythonEnv(p), stdio:['ignore','pipe','pipe']});
+            ideJob = child;
+            child.stdout.on('data', data => output.append(data.toString()));
+            child.stderr.on('data', data => output.append(data.toString()));
+            const timer = setTimeout(() => child.kill('SIGTERM'), 1200000);
+            let done = false;
+            const finish = error => {
+                if (done) return; done = true;
+                clearTimeout(timer); ideJob = undefined;
+                if (error) output.appendLine(error.message);
+                if (manual) vscode.window.showInformationMessage(error?.message || ideStatus().message);
+                if (panel) render();
+                resolve();
+            };
+            child.once('error', finish); child.once('close', () => finish());
+        });
+    }
     const trusted = () => {
         if (!vscode.workspace.isTrusted) throw new Error('Trust this workspace before running Linux commands.');
     };
@@ -145,14 +171,17 @@ function activate(context) {
         if (!vscode.extensions.getExtension(id)) {
             await vscode.commands.executeCommand('workbench.extensions.installExtension', id);
         }
+        await vscode.commands.executeCommand('clangd.shutdown');
         const config = vscode.workspace.getConfiguration('clangd', folder.uri);
         // Launch an APK-native interpreter; a script in writable app storage is
         // not itself executable on modern Android. No shell or external service.
-        await config.update('path', p.python, vscode.ConfigurationTarget.WorkspaceFolder);
         await config.update('arguments', core.guestArgs(p, ['/usr/bin/clangd', '--background-index', '-j=2'],
-            folder.uri.fsPath), vscode.ConfigurationTarget.WorkspaceFolder);
-        await config.update('checkUpdates', false, vscode.ConfigurationTarget.WorkspaceFolder);
-        await config.update('useScriptAsExecutable', false, vscode.ConfigurationTarget.WorkspaceFolder);
+            folder.uri.fsPath), vscode.ConfigurationTarget.Workspace);
+        await config.update('checkUpdates', false, vscode.ConfigurationTarget.Workspace);
+        await config.update('useScriptAsExecutable', false, vscode.ConfigurationTarget.Workspace);
+        // Set the executable last so a configuration-triggered restart never
+        // launches bare Python before its runtime arguments are present.
+        await config.update('path', p.python, vscode.ConfigurationTarget.Workspace);
         await vscode.commands.executeCommand('clangd.restart');
         vscode.window.showInformationMessage('Linux clangd configured for this folder. Open a C/C++ file. Rerun this command after an APK update to refresh Android executable paths.');
     }
@@ -181,7 +210,8 @@ function activate(context) {
             ['terminal','New Linux terminal'], ['workspace','Open workspace'], ['home','Open Linux home'],
             ['clangd','Set up C/C++ language server'],
             ['docker','Configure Docker SSH'], ['dockerStatus','Check Docker'], ['shortcuts','Keyboard help'],
-            ['cleanCache','Clean APT cache'], ['stop','Stop sessions'], ['restart','Restart terminal']
+            ['cleanCache','Clean APT cache'], ['stop','Stop sessions'], ['restart','Restart terminal'],
+            ['ideUpdate','Check IDE updates'], ['ideRollback','Restore bundled IDE']
         ];
         panel.webview.html = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';">
@@ -198,6 +228,7 @@ section{border:1px solid var(--vscode-panel-border);border-radius:8px;padding:20
 <section><h2>Runtime health</h2><p>${sessions.size} managed terminals · ${jobs.size} active operations</p><pre>${e(health ? JSON.stringify(health,null,2) : 'No probe has run yet. Select Check runtime.')}</pre></section>
 <section><h2>Persistent storage</h2><p>Workspace: <code>${e(p.workspace)}</code></p><p>Linux home: <code>${e(p.home)}</code></p><p>Clean APT cache removes downloaded package archives only. App uninstall removes this app’s private Linux files; back up projects first.</p></section>
 <section><h2>Remote Docker</h2><p>Context: ${e(context.globalState.get('dockerContext') || 'Not configured')}</p><p>Docker Engine runs on your SSH host. Build contexts are uploaded; bind mounts refer to the remote host’s filesystem. SSH keys stay in your private home. No local Docker Engine is provided.</p></section>
+<section><h2>IDE updates</h2><p>Automatic updates: ${vscode.workspace.getConfiguration('vscodroid.linux').get('autoUpdateIDE',true) ? 'On' : 'Off'}. Current IDE: ${e(vscode.version)}.</p><p>${e(ideStatus().message)}</p><p>Checks daily while the IDE runs. Compatible releases download automatically and activate after a full app stop and start. Your current session continues uninterrupted. Updates requiring newer Android libraries wait for an app release. Restore bundled IDE schedules recovery on the next start.</p></section>
 <section><h2>Recovery</h2><p>A failed download or extraction can be retried. Existing installations, home and projects are never replaced by setup. If the runtime probe fails, its error appears above. Android process or executable restrictions are reported without weakening device security.</p></section>
 <script nonce="${nonce}">const api=acquireVsCodeApi();document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>api.postMessage({action:b.dataset.action})));</script></body></html>`;
     }
@@ -208,13 +239,14 @@ section{border:1px solid var(--vscode-panel-border);border-radius:8px;padding:20
         panel.onDidDispose(() => { panel = undefined; });
         panel.webview.onDidReceiveMessage(message => {
             const allowed = new Set(['install','diagnostics','toolchains','terminal','workspace','home',
-                'docker','dockerStatus','shortcuts','cleanCache','stop','restart','clangd']);
+                'docker','dockerStatus','shortcuts','cleanCache','stop','restart','clangd','ideUpdate','ideRollback']);
             if (allowed.has(message?.action)) vscode.commands.executeCommand(`vscodroid.linux.${message.action}`);
         });
         render();
     }
     const commands = {
         dashboard, shortcuts, diagnostics, docker:dockerSetup, dockerStatus, clangd:configureClangd,
+        ideUpdate:() => ideUpdate('check', true), ideRollback:() => ideUpdate('rollback', true),
         install:() => operation('Installing Debian ARM64', 'install'),
         toolchains:() => operation('Installing Linux development tools', 'toolchains'),
         terminal:() => openTerminal(),
@@ -237,8 +269,15 @@ section{border:1px solid var(--vscode-panel-border);border-radius:8px;padding:20
     context.subscriptions.push(vscode.window.registerTerminalProfileProvider('vscodroid.linux.terminal', {
         provideTerminalProfile:() => new vscode.TerminalProfile(terminalOptions())
     }));
+    const ownsTerminal = terminal => terminal.creationOptions?.shellPath?.endsWith('/libpython.so') &&
+        Array.isArray(terminal.creationOptions.shellArgs) &&
+        terminal.creationOptions.shellArgs.includes(p.files) &&
+        terminal.creationOptions.shellArgs.some(arg => typeof arg === 'string' &&
+            /\/vscodroid\.vscodroid-linux-\d+\.\d+\.\d+\/runtime\.py$/.test(arg));
+    // Existing terminals can precede extension activation after a window reload.
+    for (const terminal of vscode.window.terminals) if (ownsTerminal(terminal)) sessions.add(terminal);
     context.subscriptions.push(vscode.window.onDidOpenTerminal(terminal => {
-        if (terminal.creationOptions?.shellPath === p.python && terminal.name === 'Debian ARM64') sessions.add(terminal);
+        if (ownsTerminal(terminal)) sessions.add(terminal);
         update();
     }));
     context.subscriptions.push(vscode.window.onDidCloseTerminal(terminal => {sessions.delete(terminal); update();}));
@@ -256,8 +295,38 @@ section{border:1px solid var(--vscode-panel-border);border-radius:8px;padding:20
     context.subscriptions.push(status, output, {dispose:() => {
         // Terminals are owned by VS Code and can survive extension-host reloads.
         for (const job of jobs) stopJob(job);
+        ideJob?.kill('SIGTERM');
         panel?.dispose();
     }});
+    const healthyTimer = setTimeout(() => {
+        try { require(path.join(p.files,'server/ide-loader.js')).markHealthy(path.join(p.files,'server'), process.env.VSCODROID_IDE_ROOT); }
+        catch (error) { output.appendLine('IDE health marker: ' + error.message); }
+    }, 30000);
+    const updateTimer = setTimeout(() => ideUpdate(), 60000);
+    const updateInterval = setInterval(() => ideUpdate(), 6 * 3600000);
+    context.subscriptions.push({dispose:() => {clearTimeout(healthyTimer);clearTimeout(updateTimer);clearInterval(updateInterval);}});
+    // APK updates move nativeLibraryDir; bundled extension updates move runtime.py.
+    // Refresh only an existing launcher generated by this extension, retaining
+    // the user's extra clangd flags and leaving unrelated configurations alone.
+    const clangdConfig = vscode.workspace.getConfiguration('clangd');
+    const clangdArgs = clangdConfig.get('arguments', []);
+    const runtimeIndex = Array.isArray(clangdArgs) ? clangdArgs.findIndex(arg =>
+        typeof arg === 'string' && /\/vscodroid\.vscodroid-linux-\d+\.\d+\.\d+\/runtime\.py$/.test(arg)) : -1;
+    const nativeIndex = Array.isArray(clangdArgs) ? clangdArgs.indexOf('--native') : -1;
+    if (installed() && vscode.workspace.isTrusted && vscode.workspace.workspaceFolders?.length &&
+        vscode.extensions.getExtension('llvm-vs-code-extensions.vscode-clangd') && runtimeIndex >= 0 &&
+        nativeIndex >= 0 && clangdArgs.includes(p.files) &&
+        (clangdArgs[runtimeIndex] !== path.join(__dirname,'runtime.py') || clangdConfig.get('path') !== p.python)) {
+        (async () => {
+            await vscode.commands.executeCommand('clangd.shutdown');
+            const refreshed = [...clangdArgs];
+            refreshed[runtimeIndex] = path.join(__dirname,'runtime.py');
+            refreshed[nativeIndex + 1] = p.native;
+            await clangdConfig.update('arguments',refreshed,vscode.ConfigurationTarget.Workspace);
+            await clangdConfig.update('path',p.python,vscode.ConfigurationTarget.Workspace);
+            await vscode.commands.executeCommand('clangd.restart');
+        })().catch(error => output.appendLine('Refresh Linux clangd launcher: ' + error.message));
+    }
     update();
     if (!context.globalState.get('welcomed')) {
         context.globalState.update('welcomed', true);
