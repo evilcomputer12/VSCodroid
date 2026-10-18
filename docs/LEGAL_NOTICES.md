@@ -664,6 +664,8 @@ On Play Store installs, on-demand toolchain packs (Ruby, Java, C/C++) are delive
 VSCodroid bundles binaries licensed under the GNU General Public License (GPL). In compliance with the GPL, the complete corresponding source code for these binaries is available:
 
 - **Bash** (GPL-3.0): Source available at https://github.com/termux/termux-packages (package: `bash`)
+- **PRoot** (GPL-2.0): The Linux Edition ships the PRoot executable and loader. Source: https://github.com/termux/proot; Android build recipe and patches: https://github.com/termux/termux-packages/tree/master/packages/proot. The resolved binary package version and SHA-256 are recorded by `scripts/download-proot.sh` in the verified Termux package manifest.
+- **talloc** (LGPL-3.0): Dynamically linked by PRoot. Source: https://talloc.samba.org/; Android build recipe: https://github.com/termux/termux-packages/tree/master/packages/libtalloc. The shared library is separately replaceable when rebuilding the APK.
 - **Git** (GPL-2.0): Source available at https://github.com/termux/termux-packages (package: `git`)
 - **GNU Make** (GPL-3.0): Source available at https://github.com/termux/termux-packages (package: `make`)
 - **readline** (GPL-3.0): Source available at https://github.com/termux/termux-packages (package: `readline`)
@@ -702,10 +704,10 @@ The offer above is one obligation; a copy of the licence itself is the other. GP
 
 | Licence | Text | Components it covers |
 |---|---|---|
-| GPL-2.0 | `licenses/COPYING.GPLv2` | Git, `git-remote-curl`, Zstandard, xz / liblzma, Java (OpenJDK), termux-exec (its `Canonicalize.c`), the Linux kernel interface headers (C/C++ toolchain pack) |
+| GPL-2.0 | `licenses/COPYING.GPLv2` | Git, `git-remote-curl`, Zstandard, xz / liblzma, Java (OpenJDK), termux-exec (its `Canonicalize.c`), PRoot and its loader, the Linux kernel interface headers (C/C++ toolchain pack) |
 | GPL-3.0 | `licenses/COPYING.GPLv3` | Bash, GNU Make, readline, gdbm, libiconv, xz / liblzma |
 | LGPL-2.1 | `licenses/COPYING.LGPLv2.1` | libiconv, xz / liblzma |
-| LGPL-3.0 | `licenses/COPYING.LGPLv3` | GMP (Ruby toolchain pack), libzmq (inside zeromq.js) |
+| LGPL-3.0 | `licenses/COPYING.LGPLv3` | GMP (Ruby toolchain pack), libzmq (inside zeromq.js), talloc (Linux Edition) |
 
 The first three are the Free Software Foundation's texts as shipped in Termux's `liblzma` package, which is one of the packages this app redistributes. LGPL-3.0 is the FSF's own publication at https://www.gnu.org/licenses/lgpl-3.0.txt, because no Termux package here carries it; libzmq's copy, with its exception appended, also ships beside the zeromq.js addon. All four are verbatim, and `NoticesTest` pins the sha256 of each: a licence text that has been reflowed, re-wrapped or truncated is no longer the licence, so none of them may be edited.
 
@@ -833,3 +835,23 @@ For questions about licenses, trademarks, or legal notices:
 ---
 
 _This document was last updated on October 14, 2026._
+
+## Linux Edition runtime components
+
+| Component | License | Source |
+|---|---|---|
+| PRoot | GPL-2.0 | https://github.com/termux/proot |
+| talloc | LGPL-3.0 | https://www.samba.org/ftp/talloc/ |
+| libandroid-shmem | BSD-3-Clause | https://github.com/termux/libandroid-shmem |
+
+PRoot and talloc are downloaded from the signature-verified Termux package
+repository. Corresponding package build recipes and source archive checksums are
+available in https://github.com/termux/termux-packages/tree/master/packages/proot
+and https://github.com/termux/termux-packages/tree/master/packages/libtalloc. The
+resolved package records are retained in `toolchains/termux-packages/` and the
+APK includes upstream copyright notices under `usr/share/doc/`. GPL-2.0 and
+LGPL-3.0 license texts are bundled in the application's Licences screen.
+
+The separately downloaded Debian image retains Debian's package copyright
+records in `/usr/share/doc`. APT-installed packages are obtained directly by
+the device; they are not bundled in the APK.

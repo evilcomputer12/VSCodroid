@@ -85,6 +85,7 @@ python3 scripts/build-nls-bundles.py
 # 4. Termux tools (bash, git, tmux, make, openssh) and the shared libraries the
 #    bundled binaries link against. Wipes and repopulates assets/usr/lib.
 ./scripts/download-termux-tools.sh
+./scripts/download-proot.sh # Linux Edition: APK-packaged PRoot and loader
 
 # 5. npm
 ./scripts/download-npm.sh
@@ -201,7 +202,9 @@ VSCodroid/
 │   │   │   │   └── extensions/           # vscodroid.* in git, Open VSX ones downloaded
 │   │   │   ├── jniLibs/arm64-v8a/     # Native binaries (.so trick for exec permission)
 │   │   │   │   ├── libnode.so            # Node.js
-│   │   │   │   ├── libpython.so          # Python launcher (its libpython3.x.so
+│   │   │   │   ├── libproot.so           # Rootless Debian launcher
+│   │   │   ├── libproot-loader.so    # APK executable guest loader
+│   │   │   ├── libpython.so          # Python launcher (its libpython3.x.so
 │   │   │   │   │                         #   runtime lives in assets/usr/lib)
 │   │   │   │   ├── libgit.so             # Git
 │   │   │   │   ├── libgit-remote-curl.so # Git's HTTPS transport helper

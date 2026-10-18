@@ -107,6 +107,17 @@ val bundleNotices = tasks.register<Sync>("bundleNotices") {
     }
 }
 
+// Stage the fork's source extensions for direct Gradle builds as well as scripts.
+val stageLinuxExtension = tasks.register<Exec>("stageLinuxExtension") {
+    workingDir = rootProject.projectDir.parentFile
+    commandLine("python3", "scripts/stage-linux-extension.py")
+    inputs.dir(rootProject.projectDir.parentFile.resolve("linux"))
+    inputs.file(rootProject.projectDir.parentFile.resolve("scripts/stage-linux-extension.py"))
+    outputs.dirs(file("src/main/assets/extensions/vscodroid.vscodroid-linux-0.1.0"),
+        file("src/main/assets/extensions/vscodroid.vscodroid-linux-ui-0.1.0"))
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(stageLinuxExtension) }
+
 android {
     namespace = "com.vscodroid"
     // Compile against the newest platform, which the androidx libraries this app
@@ -148,8 +159,8 @@ android {
         // browser simply times out.
         @Suppress("OldTargetApi")
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.5.0-linux.1"
+        versionCode = 17
+        versionName = "1.5.0-linux.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -1187,6 +1198,8 @@ val requiredJniLibs = listOf(
     "libmake.so",
     "libnode.so",
     "libpython.so",
+    "libproot.so",
+    "libproot-loader.so",
     "libripgrep.so",
     "libseccomp-shim.so",
     "libssh.so",
@@ -1206,6 +1219,8 @@ val jniLibProducers = mapOf(
     "libmake.so" to "scripts/download-termux-tools.sh",
     "libnode.so" to "scripts/download-node.sh",
     "libpython.so" to "scripts/download-python.sh",
+    "libproot.so" to "scripts/download-proot.sh",
+    "libproot-loader.so" to "scripts/download-proot.sh",
     "libripgrep.so" to "scripts/fetch-vscode-oss.sh",
     "libseccomp-shim.so" to "scripts/build-claude-shim.sh",
     "libssh.so" to "scripts/download-termux-tools.sh",

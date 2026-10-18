@@ -46,6 +46,7 @@ python3 "$SCRIPT_DIR/build-nls-bundles.py"
 
 step 5/11 "Downloading Termux tools..."
 "$SCRIPT_DIR/download-termux-tools.sh"
+"$SCRIPT_DIR/download-proot.sh"
 
 step 6/11 "Downloading npm..."
 "$SCRIPT_DIR/download-npm.sh"

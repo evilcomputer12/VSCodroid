@@ -1,0 +1,142 @@
+{
+  "name": "vscodroid-linux",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.1.0",
+  "publisher": "vscodroid",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "main": "./extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onTerminalProfile:vscodroid.linux.terminal"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Linux terminals, setup and tasks require workspace trust."
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscodroid.linux.dashboard",
+        "title": "Linux: Setup and Runtime Dashboard"
+      },
+      {
+        "command": "vscodroid.linux.install",
+        "title": "Linux: Install Debian ARM64"
+      },
+      {
+        "command": "vscodroid.linux.toolchains",
+        "title": "Linux: Install Development Toolchains"
+      },
+      {
+        "command": "vscodroid.linux.terminal",
+        "title": "Linux: New Debian Terminal"
+      },
+      {
+        "command": "vscodroid.linux.workspace",
+        "title": "Linux: Open Shared Workspace"
+      },
+      {
+        "command": "vscodroid.linux.home",
+        "title": "Linux: Open Persistent Home"
+      },
+      {
+        "command": "vscodroid.linux.stop",
+        "title": "Linux: Stop Managed Sessions"
+      },
+      {
+        "command": "vscodroid.linux.restart",
+        "title": "Linux: Restart Terminal Sessions"
+      },
+      {
+        "command": "vscodroid.linux.diagnostics",
+        "title": "Linux: Run Diagnostics"
+      },
+      {
+        "command": "vscodroid.linux.shortcuts",
+        "title": "Linux: Keyboard and Clipboard Help"
+      },
+      {
+        "command": "vscodroid.linux.docker",
+        "title": "Linux: Configure Remote Docker over SSH"
+      },
+      {
+        "command": "vscodroid.linux.dockerStatus",
+        "title": "Linux: Check Remote Docker Connection"
+      },
+      {
+        "command": "vscodroid.linux.paste",
+        "title": "Linux: Paste into Active Terminal"
+      },
+      {
+        "command": "vscodroid.linux.copy",
+        "title": "Linux: Copy Terminal Selection"
+      },
+      {
+        "command": "vscodroid.linux.cleanCache",
+        "title": "Linux: Clean APT Download Cache"
+      },
+      {
+        "command": "vscodroid.linux.clangd",
+        "title": "Linux: Configure C/C++ Language Server"
+      }
+    ],
+    "terminal": {
+      "profiles": [
+        {
+          "id": "vscodroid.linux.terminal",
+          "title": "Debian ARM64",
+          "icon": "terminal-linux"
+        }
+      ]
+    },
+    "taskDefinitions": [
+      {
+        "type": "vscodroid-linux",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Linux executable (no shell expansion)"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cwd": {
+            "type": "string",
+            "description": "Absolute shared workspace directory"
+          }
+        }
+      }
+    ],
+    "menus": {
+      "terminal/title": [
+        {
+          "command": "vscodroid.linux.copy",
+          "group": "navigation@20"
+        },
+        {
+          "command": "vscodroid.linux.paste",
+          "group": "navigation@21"
+        },
+        {
+          "command": "vscodroid.linux.dashboard",
+          "group": "navigation@22"
+        }
+      ]
+    }
+  }
+}

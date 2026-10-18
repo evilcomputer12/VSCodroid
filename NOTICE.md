@@ -227,3 +227,23 @@ The `libc++_shared.so` C++ standard library is distributed under the Apache 2.0 
 ---
 
 This file is provided for attribution purposes. For exact license texts, refer to the `LICENSE` files in each software's source repository. If you believe any attribution is missing or incorrect, please open an issue at https://github.com/rmyndharis/VSCodroid/issues.
+
+## Linux Edition runtime components
+
+| Component | License | Source |
+|---|---|---|
+| PRoot | GPL-2.0 | https://github.com/termux/proot |
+| talloc | LGPL-3.0 | https://www.samba.org/ftp/talloc/ |
+| libandroid-shmem | BSD-3-Clause | https://github.com/termux/libandroid-shmem |
+
+PRoot and talloc are downloaded from the signature-verified Termux package
+repository. Corresponding package build recipes and source archive checksums are
+available in https://github.com/termux/termux-packages/tree/master/packages/proot
+and https://github.com/termux/termux-packages/tree/master/packages/libtalloc. The
+resolved package records are retained in `toolchains/termux-packages/` and the
+APK includes upstream copyright notices under `usr/share/doc/`. GPL-2.0 and
+LGPL-3.0 license texts are bundled in the application's Licences screen.
+
+The separately downloaded Debian image retains Debian's package copyright
+records in `/usr/share/doc`. APT-installed packages are obtained directly by
+the device; they are not bundled in the APK.

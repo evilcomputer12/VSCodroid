@@ -275,6 +275,9 @@ object Environment {
             // even one built from source; zeromq 6.1 and later load through
             // cmake-ts and ignore it.
             "ZEROMQ_PREBUILD" to "$filesDir/usr/lib/node-addons/zeromq",
+            "VSCODROID_FILES_DIR" to filesDir,
+            "VSCODROID_NATIVE_DIR" to nativeLibDir,
+            "VSCODROID_WORKSPACE" to getProjectsDir(context),
             "VSCODROID_PORT" to port.toString(),
             "VSCODROID_VERSION" to getVersionName(context),
             // server.js pins the sign-in callback intent to it. packageName and

@@ -103,7 +103,7 @@ flowchart TD
       end
     end
 
-    LIBS["Native Libraries (jniLibs)<br/>libnode.so, libpython.so, libgit.so, libgit-remote-curl.so,<br/>libbash.so, libtmux.so, libmake.so, libripgrep.so,<br/>libssh.so, libssh-keygen.so, libldmusl.so, libexec-trampoline.so"]
+    LIBS["Native Libraries (jniLibs)<br/>libnode.so, libpython.so, libgit.so, libgit-remote-curl.so,<br/>libbash.so, libtmux.so, libproot.so, libproot-loader.so, libmake.so, libripgrep.so,<br/>libssh.so, libssh-keygen.so, libldmusl.so, libexec-trampoline.so"]
   end
 
   EXTRAROW --> WEBVIEW

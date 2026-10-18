@@ -1,0 +1,17 @@
+{
+  "name": "vscodroid-linux-ui",
+  "publisher": "vscodroid",
+  "version": "0.1.0",
+  "displayName": "%displayName%",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "browser": "./extension.js",
+  "extensionKind": [
+    "ui"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ]
+}
