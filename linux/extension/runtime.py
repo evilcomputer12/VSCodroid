@@ -8,6 +8,7 @@ import ipaddress
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import shutil
 import signal
 import subprocess
@@ -226,6 +227,9 @@ class Runtime:
                     raise ValueError('Rootfs has no bash executable')
                 self.write_guest(staging, 'etc/resolv.conf', ''.join('nameserver ' + s + '\n' for s in dns))
                 self.write_guest(staging, 'etc/hosts', '127.0.0.1 localhost\n::1 localhost\n')
+                # Keep tzdata's package configuration non-interactive in the
+                # dashboard installer, which has no terminal for debconf.
+                self.write_guest(staging, 'etc/timezone', 'Etc/UTC\n')
                 # Fake UID 0 is for dpkg, not a privilege escalation. No services.
                 self.write_guest(staging, 'usr/sbin/policy-rc.d', '#!/bin/sh\nexit 101\n', 0o755)
                 self.write_guest(staging, 'etc/apt/apt.conf.d/99vscodroid',
@@ -252,7 +256,35 @@ class Runtime:
             if not archive:
                 image.unlink(missing_ok=True)
 
-    def argv(self, command, cwd=None, root=None):
+    def account(self, username):
+        if not re.fullmatch(r'[a-z_][a-z0-9_-]{0,31}', username or ''):
+            raise ValueError('Linux username must start with a lowercase letter or underscore and contain only lowercase letters, digits, underscore or dash')
+        for line in (self.rootfs / 'etc/passwd').read_text().splitlines():
+            fields = line.split(':')
+            if len(fields) == 7 and fields[0] == username:
+                try:
+                    uid, gid = int(fields[2]), int(fields[3])
+                except ValueError:
+                    break
+                if uid < 1000 or fields[5] != '/home/' + username:
+                    break
+                return uid, gid, fields[5]
+        raise RuntimeError('Linux user is not configured; create one from the Linux dashboard')
+
+    def create_user(self, username):
+        if not re.fullmatch(r'[a-z_][a-z0-9_-]{0,31}', username or ''):
+            raise ValueError('Linux username must start with a lowercase letter or underscore and contain only lowercase letters, digits, underscore or dash')
+        passwd = self.rootfs / 'etc/passwd'
+        if any(line.split(':', 1)[0] == username for line in passwd.read_text().splitlines()):
+            self.account(username)
+            (self.base / 'users' / username).mkdir(parents=True, exist_ok=True)
+            return
+        self.run(['/usr/sbin/useradd', '--create-home', '--user-group', '--shell', '/bin/bash',
+                  '--home-dir', '/home/' + username, username], timeout=30)
+        (self.base / 'users' / username).mkdir(parents=True, exist_ok=True)
+        self.account(username)
+
+    def argv(self, command, cwd=None, root=None, user=None):
         root = root or self.rootfs
         if not (root / 'usr/bin/bash').is_file():
             raise RuntimeError('Install Debian before opening a Linux terminal')
@@ -262,21 +294,40 @@ class Runtime:
             if not binary.is_file():
                 raise RuntimeError('APK is missing ' + binary.name + '; rebuild with download-proot.sh')
         workdir = str(self.workspace)
+        guest_home = None
         if cwd:
             candidate = Path(cwd).resolve()
             if candidate == self.workspace or self.workspace in candidate.parents:
                 workdir = str(candidate)
             elif candidate == self.home or self.home in candidate.parents:
                 workdir = str(candidate)
+                guest_home = '/root'
+            elif user and (candidate == self.base / 'users' / user or
+                           self.base / 'users' / user in candidate.parents):
+                guest_home = '/home/' + user
+                suffix = candidate.relative_to(self.base / 'users' / user)
+                workdir = str(PurePosixPath(guest_home, *suffix.parts))
             else:
                 raise ValueError('Linux working directory must be inside the shared workspace or Linux home')
-        args = [str(proot), '--kill-on-exit', '--link2symlink', '-0', '-r', str(root),
+        identity = ['-0']
+        user_home = []
+        user_env = ['HOME=/root', 'USER=root', 'LOGNAME=root']
+        if user:
+            uid, gid, account_home = self.account(user)
+            guest_home = account_home
+            persistent_home = self.base / 'users' / user
+            persistent_home.mkdir(parents=True, exist_ok=True)
+            identity = ['-i', f'{uid}:{gid}']
+            user_home = ['-b', str(persistent_home) + ':' + account_home]
+            user_env = ['HOME=' + account_home, 'USER=' + user, 'LOGNAME=' + user]
+        args = [str(proot), '--kill-on-exit', '--link2symlink', *identity, '-r', str(root),
                 '-b', '/dev', '-b', '/proc', '-b', '/sys',
                 '-b', str(self.tmp) + ':/tmp', '-b', str(self.home) + ':/root',
+                *user_home,
                 '-b', str(self.home) + ':' + str(self.home),
                 '-b', str(self.workspace) + ':/workspace',
                 '-b', str(self.workspace) + ':' + str(self.workspace), '-w', workdir,
-                '/usr/bin/env', '-i', 'HOME=/root', 'USER=root', 'LOGNAME=root',
+                '/usr/bin/env', '-i', *user_env,
                 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
                 'TERM=xterm-256color', 'COLORTERM=truecolor', 'LANG=C.UTF-8',
                 'TMPDIR=/tmp', 'SHELL=/bin/bash', 'VSCODROID_LINUX=1']
@@ -295,10 +346,10 @@ class Runtime:
     def toolchains(self):
         with self.lock():
             # Recover a cancelled package transaction before installing more packages.
-            self.run(['/usr/bin/env', 'DEBIAN_FRONTEND=noninteractive',
+            self.run(['/usr/bin/env', 'DEBIAN_FRONTEND=noninteractive', 'TZ=Etc/UTC',
                       'dpkg', '--configure', '-a'], timeout=600)
             self.run(['/usr/bin/apt-get', 'update'], timeout=600)
-            self.run(['/usr/bin/env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get',
+            self.run(['/usr/bin/env', 'DEBIAN_FRONTEND=noninteractive', 'TZ=Etc/UTC', 'apt-get',
                       'install', '-y', '--no-install-recommends'] + PACKAGES, timeout=3600)
             record = json.loads(self.state.read_text())
             record['toolchains'] = True
@@ -336,21 +387,27 @@ def main():
     sub.add_parser('toolchains')
     run = sub.add_parser('exec')
     run.add_argument('--cwd')
+    run.add_argument('--user')
     run.add_argument('command', nargs=argparse.REMAINDER)
+    create_user = sub.add_parser('create-user')
+    create_user.add_argument('username')
     args = parser.parse_args()
     runtime = Runtime(args.files, args.native, args.workspace)
     if args.action == 'install':
         runtime.install(args.archive, args.dns)
     elif args.action == 'toolchains':
         runtime.toolchains()
+    elif args.action == 'create-user':
+        runtime.create_user(args.username)
+        emit('user-created', 'Linux user created: ' + args.username)
     elif args.action == 'diagnostics':
         runtime.diagnostics()
     elif args.action == 'exec':
         command = args.command
         if command and command[0] == '--':
             command = command[1:]
-        os.execve(runtime.argv(command or ['/bin/bash', '-l'], args.cwd)[0],
-                  runtime.argv(command or ['/bin/bash', '-l'], args.cwd), runtime.env())
+        argv = runtime.argv(command or ['/bin/bash', '-l'], args.cwd, user=args.user)
+        os.execve(argv[0], argv, runtime.env())
 
 
 if __name__ == '__main__':

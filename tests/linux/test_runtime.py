@@ -118,6 +118,31 @@ class RuntimeTests(unittest.TestCase):
         self.assertIn('--kill-on-exit', args)
         self.assertNotIn('/data/data/com.termux', ' '.join(args))
 
+    def test_regular_user_runs_without_fake_root_and_gets_persistent_home(self):
+        etc = self.r.rootfs / 'etc'
+        etc.mkdir()
+        (etc / 'passwd').write_text('root:x:0:0:root:/root:/bin/bash\n'
+                                    'developer:x:1000:1000::/home/developer:/bin/bash\n')
+        args = self.r.argv(['/bin/bash', '-l'], user='developer')
+        self.assertIn('-i', args)
+        self.assertEqual(args[args.index('-i') + 1], '1000:1000')
+        self.assertNotIn('-0', args)
+        self.assertIn(str(self.r.base / 'users/developer') + ':/home/developer', args)
+        self.assertIn('HOME=/home/developer', args)
+
+    def test_regular_user_name_is_validated_before_lookup(self):
+        with self.assertRaisesRegex(ValueError, 'username'):
+            self.r.account('developer;id')
+
+    def test_regular_users_home_folder_maps_to_guest_home(self):
+        etc = self.r.rootfs / 'etc'
+        etc.mkdir()
+        (etc / 'passwd').write_text('developer:x:1000:1000::/home/developer:/bin/bash\n')
+        folder = self.r.base / 'users/developer/project'
+        folder.mkdir(parents=True)
+        args = self.r.argv(['/bin/bash'], str(folder), user='developer')
+        self.assertEqual(args[args.index('-w') + 1], '/home/developer/project')
+
     def test_foreign_cwd_refused(self):
         with self.assertRaises(ValueError):
             self.r.argv(['bash'], '/etc')

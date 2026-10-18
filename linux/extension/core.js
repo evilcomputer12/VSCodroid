@@ -26,8 +26,8 @@ function runtimeArgs(p, action, args = []) {
         '--workspace', p.workspace, action, ...args];
 }
 
-function guestArgs(p, command, cwd) {
-    return runtimeArgs(p, 'exec', [...(cwd ? ['--cwd', cwd] : []), '--', ...command]);
+function guestArgs(p, command, cwd, user) {
+    return runtimeArgs(p, 'exec', [...(cwd ? ['--cwd', cwd] : []), ...(user ? ['--user', user] : []), '--', ...command]);
 }
 
 function dockerEndpoint(value) {

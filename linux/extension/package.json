@@ -41,6 +41,14 @@
         "title": "Linux: New Debian Terminal"
       },
       {
+        "command": "vscodroid.linux.createUser",
+        "title": "Linux: Create Regular User"
+      },
+      {
+        "command": "vscodroid.linux.rootTerminal",
+        "title": "Linux: New Root Terminal"
+      },
+      {
         "command": "vscodroid.linux.workspace",
         "title": "Linux: Open Shared Workspace"
       },

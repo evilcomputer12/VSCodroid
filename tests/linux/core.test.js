@@ -25,6 +25,11 @@ test('launcher keeps spaces, Unicode, metacharacters out of the shell', () => {
     assert.equal(core.pythonEnv(p).LD_PRELOAD, '');
     assert.equal(core.pythonEnv(p).NODE_OPTIONS, '');
 });
+test('regular Linux user is passed as a distinct runtime option', () => {
+    const p = core.paths({VSCODROID_FILES_DIR:'/data/a b',VSCODROID_NATIVE_DIR:'/data/lib'});
+    const args = core.guestArgs(p, ['/bin/bash','-l'], '/data/a b/projects', 'developer');
+    assert.deepEqual(args.slice(-8), ['exec','--cwd','/data/a b/projects','--user','developer','--','/bin/bash','-l']);
+});
 test('dashboard escapes guest output', () => {
     assert.equal(core.escapeHtml('<script>"&\''), '&lt;script&gt;&quot;&amp;&#39;');
 });

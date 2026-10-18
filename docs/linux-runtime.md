@@ -18,6 +18,7 @@ Storage under Android's private `files/`:
 |---|---|
 | `linux/rootfs` | Debian system and installed packages |
 | `linux/home` | Persistent Linux `/root` |
+| `linux/users/<name>` | Persistent home for the optional regular Linux user |
 | `projects` | Shared editor workspace; also `/workspace` in Linux |
 | `linux/tmp` | Guest `/tmp` and PRoot temporary files |
 | `linux/state.json` | Installation and toolchain completion record |
@@ -72,3 +73,8 @@ also recognizes restored sessions after an editor reload. Restart creates a fres
 Linux terminal while preserving home and workspace files.
 **Clean APT Cache** removes package downloads, not installed tools or workspaces.
 No destructive reset button is provided. Back up home/projects before app removal.
+
+After Debian installation, the dashboard offers to create a regular Linux user.
+New terminals use that account by default; **New root terminal** remains available
+for package administration. Package setup runs as root with a non-interactive
+UTC timezone configuration so `tzdata` cannot block on a debconf prompt.

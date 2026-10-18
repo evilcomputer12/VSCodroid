@@ -128,18 +128,42 @@ function activate(context) {
             await diagnostics();
         } finally { busy = false; update(); }
     }
-    function terminalOptions(command = ['/bin/bash', '-l']) {
+    function terminalOptions(command = ['/bin/bash', '-l'], asRoot = false) {
         trusted();
         if (!installed()) throw new Error('Open Linux: Setup and Runtime Dashboard and install Debian first.');
+        const user = asRoot ? undefined : context.globalState.get('linuxUser');
         const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const userHome = user && path.join(p.files,'linux/users',user);
         const cwd = folder && (folder === p.workspace || folder.startsWith(p.workspace + path.sep) ||
-            folder === p.home || folder.startsWith(p.home + path.sep)) ? folder : p.workspace;
-        return {name:'Debian ARM64', shellPath:p.python, shellArgs:core.guestArgs(p, command, cwd),
+            folder === p.home || folder.startsWith(p.home + path.sep) ||
+            (userHome && (folder === userHome || folder.startsWith(userHome + path.sep)))) ? folder : p.workspace;
+        return {name:user ? `Debian ARM64 · ${user}` : 'Debian ARM64 · root', shellPath:p.python,
+            shellArgs:core.guestArgs(p, command, cwd, user),
             cwd, env:core.pythonEnv(p), strictEnv:true, iconPath:new vscode.ThemeIcon('terminal-linux')};
     }
-    function openTerminal(command) {
-        const terminal = vscode.window.createTerminal(terminalOptions(command));
+    function openTerminal(command, asRoot = false) {
+        const terminal = vscode.window.createTerminal(terminalOptions(command, asRoot));
         sessions.add(terminal); terminal.show(); update(); return terminal;
+    }
+    async function createLinuxUser() {
+        trusted();
+        if (!installed()) throw new Error('Install Debian before creating a Linux user.');
+        const username = await vscode.window.showInputBox({title:'Create a regular Linux user',
+            prompt:'Linux terminals will use this non-root account by default. Root remains available for administration.',
+            value:'developer',
+            validateInput:value => /^[a-z_][a-z0-9_-]{0,31}$/.test(value) ? undefined :
+                'Use 1–32 lowercase letters, digits, underscores or dashes; start with a letter or underscore.'});
+        if (!username) return;
+        await run('create-user', [username], 30000);
+        await context.globalState.update('linuxUser', username);
+        vscode.window.showInformationMessage(`Linux user ${username} created. New Linux terminals will use it by default.`);
+        update();
+    }
+    async function promptLinuxUser() {
+        if (context.globalState.get('linuxUser')) return;
+        const choice = await vscode.window.showInformationMessage(
+            'Debian is ready. Create a regular Linux user for everyday terminals?', 'Create user', 'Later');
+        if (choice === 'Create user') await createLinuxUser();
     }
     async function diagnostics() {
         trusted();
@@ -232,7 +256,8 @@ function activate(context) {
         const e = core.escapeHtml;
         const actions = [
             ['install','1 · Install Debian'], ['diagnostics','2 · Check runtime'], ['toolchains','3 · Install toolchains'],
-            ['terminal','New Linux terminal'], ['workspace','Open workspace'], ['home','Open Linux home'],
+            ['terminal','New Linux terminal'], ['rootTerminal','New root terminal'], ['createUser','Create regular Linux user'],
+            ['workspace','Open workspace'], ['home','Open Linux home'],
             ['clangd','Set up C/C++ language server'],
             ['docker','Configure Docker SSH'], ['dockerStatus','Check Docker'], ['shortcuts','Keyboard help'],
             ['cleanCache','Clean APT cache'], ['stop','Stop sessions'], ['restart','Restart terminal'],
@@ -264,7 +289,8 @@ section{border:1px solid var(--vscode-panel-border);border-radius:8px;padding:20
         panel.onDidDispose(() => { panel = undefined; });
         panel.webview.onDidReceiveMessage(message => {
             const allowed = new Set(['install','diagnostics','toolchains','terminal','workspace','home',
-                'docker','dockerStatus','shortcuts','cleanCache','stop','restart','clangd','ideUpdate','ideRollback']);
+            'docker','dockerStatus','shortcuts','cleanCache','stop','restart','clangd','ideUpdate','ideRollback',
+            'rootTerminal','createUser']);
             if (allowed.has(message?.action)) vscode.commands.executeCommand(`vscodroid.linux.${message.action}`);
         });
         render();
@@ -272,11 +298,19 @@ section{border:1px solid var(--vscode-panel-border);border-radius:8px;padding:20
     const commands = {
         dashboard, shortcuts, diagnostics, docker:dockerSetup, dockerStatus, clangd:configureClangd,
         ideUpdate:() => ideUpdate('check', true), ideRollback:() => ideUpdate('rollback', true),
-        install:() => operation('Installing Debian ARM64', 'install'),
+        install:async () => { await operation('Installing Debian ARM64', 'install'); await promptLinuxUser(); },
         toolchains:() => operation('Installing Linux development tools', 'toolchains'),
         terminal:() => openTerminal(),
+        rootTerminal:() => openTerminal(['/bin/bash','-l'], true),
+        createUser:createLinuxUser,
         workspace:() => { trusted(); return vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(p.workspace), false); },
-        home:() => { trusted(); fs.mkdirSync(p.home,{recursive:true}); return vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(p.home), false); },
+        home:() => {
+            trusted();
+            const user = context.globalState.get('linuxUser');
+            const home = user ? path.join(p.files,'linux/users',user) : p.home;
+            fs.mkdirSync(home,{recursive:true});
+            return vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(home), false);
+        },
         copy:() => vscode.commands.executeCommand('workbench.action.terminal.copySelection'),
         paste:() => vscode.commands.executeCommand('workbench.action.terminal.paste'),
         stop:() => { for (const terminal of sessions) stopTerminal(terminal); for (const job of jobs) stopJob(job); update(); },
