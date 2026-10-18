@@ -1,3 +1,20 @@
+# VSCodroid Linux Edition
+
+This local fork adds a persistent Debian ARM64 development environment, native
+keyboard/clipboard integration, Linux tasks and clangd, Docker over SSH, and
+automatic updates from the Android-compatible Code OSS release feed. It installs
+as `com.vscodroid.linux.debug` alongside the original app.
+
+Start with the [build and installation guide](docs/build-macos.md),
+[Linux runtime guide](docs/linux-runtime.md), [automatic IDE updates](docs/ide-updates.md),
+and [engineering report](docs/implementation-report.md). The debug APK is produced
+at `output/vscodroid-linux-debug.apk`. Device results and remaining limits are
+recorded in the report. This fork has not been published.
+
+The upstream README and its upstream download links follow below.
+
+---
+
 <p align="center">
   <img src="docs/logo/vscodroid.png" alt="VSCodroid Logo" width="150">
 </p>

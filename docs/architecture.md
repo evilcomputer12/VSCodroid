@@ -27,6 +27,10 @@ Linux terminals use VS Code's existing real PTY. Native Python replaces itself
 with PRoot using `execve`, preserving the PTY, window-size changes, and signals.
 `--kill-on-exit` contains the lifetime of guest child processes. The guest receives
 a clean environment, excluding Android's Bionic preloads and Node/Python options.
+Restored terminals are recognized by their own live PRoot executable and rootfs
+when VS Code omits their original creation options. Closing a managed terminal
+allows a brief graceful exit, then ends a remaining tracer and its tracees. The
+fallback checks the process start identity to avoid acting on a reused PID.
 PRoot emulates UID 0 for package tools; it grants no kernel privileges and is not
 a security boundary between untrusted programs running as the same app UID.
 

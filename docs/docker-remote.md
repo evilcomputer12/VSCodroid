@@ -30,6 +30,14 @@ remote Docker host, not `/workspace` on the tablet. For bind-mounted development
 clone/sync the project onto that host or use remote volumes. The fork does not
 publish a Docker socket or an unauthenticated network daemon.
 
-No remote daemon or SSH credentials were supplied for this build session. Real
-remote authentication, container builds, logs and Compose deployment must remain
-unverified until tested against an authorized endpoint.
+During this build, the user authorized the CachyOS test host and provisioning a
+dedicated tablet key. Its private key remains in Linux home; its public key was
+added with OpenSSH `restrict` options (no PTY, agent, X11 or port forwarding).
+The known host key was copied through the Mac's already-verified SSH connection.
+See the implementation report for the actual Docker test results.
+
+Android/Linux may not resolve `.local` names through public DNS. For the test
+host, Linux `~/.ssh/config` maps the mDNS alias to its verified LAN address. Update
+that mapping if DHCP changes the host address. Do not disable host-key checking.
+To revoke the dedicated test key, remove the public-key entry whose comment is
+`vscodroid-linux-tablet-20261018` from the remote account's `authorized_keys`.

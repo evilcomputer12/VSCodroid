@@ -67,6 +67,8 @@ so breakpoints map without a remote-path translation. For Python, run
 `python3 -m pdb app.py` directly in the Debian terminal.
 
 **Stop Managed Sessions** closes this extension's terminals and setup jobs. It
-never kills unrelated app processes. Restart creates a fresh Linux terminal.
+checks the runtime executable, rootfs and process identity before cleanup. It
+also recognizes restored sessions after an editor reload. Restart creates a fresh
+Linux terminal while preserving home and workspace files.
 **Clean APT Cache** removes package downloads, not installed tools or workspaces.
 No destructive reset button is provided. Back up home/projects before app removal.
