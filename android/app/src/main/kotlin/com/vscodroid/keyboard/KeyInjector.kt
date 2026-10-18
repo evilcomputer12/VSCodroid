@@ -23,26 +23,15 @@ class KeyInjector(
     /**
      * Delivers one press of [key], by whichever of the three routes it needs.
      *
-     * A character is typed as a real key press, because a synthetic DOM event
-     * performs no default action and inserts nothing; [isTextEntry] says which
-     * presses those are. A key in [NAVIGATION_KEYS] is pressed for real too,
-     * with any latched modifier as its meta state. Everything else, and any
-     * character held with Ctrl, Alt or Meta, is announced as a DOM event,
-     * because that is what the workbench resolves its bindings from;
-     * [NAVIGATION_KEYS] says why the trackpad's Up and Down, Tab and Escape
-     * stay there. Either way the modifiers a press carried come up after it,
-     * on the same route ([modifierReleases] says why).
+     * Text and supported Ctrl/Alt/Meta chords use Android KeyEvents, including
+     * scan codes and modifier releases. A synthetic DOM event cannot perform
+     * browser editing defaults. Existing composition-sensitive navigation
+     * retains its upstream route; [NAVIGATION_KEYS] explains those exceptions.
      *
      * [toWorkbench] is for a key that is a shortcut for a workbench command, not
-     * a key for whatever has focus. It is always announced, never typed or
-     * pressed, and at the page's body instead of the focused element. The
-     * workbench resolves a binding in the context of the element the event
-     * lands on, and the terminal hands it only the commands on its skip list,
-     * turning every other key, Ctrl+B and Ctrl+S among them, into input for the
-     * shell. At the body no widget has a handler to take the key, and the
-     * listener the workbench keeps on the window resolves it in its root
-     * context wherever focus is. Read from the 1.139.1 workbench's terminal key
-     * handler and keybinding service; not measured on a device.
+     * a key for whatever has focus. Known toolbar actions call the bundled
+     * browser extension's public command API. This keeps Save and sidebar
+     * actions independent of terminal focus and the terminal's key skip list.
      */
     fun injectKey(
         key: String,
@@ -53,8 +42,19 @@ class KeyInjector(
         toWorkbench: Boolean = false
     ) {
         if (toWorkbench) {
-            announceKeystroke(key, ctrlKey, altKey, shiftKey, metaKey, toWorkbench = true)
-            return
+            workbenchShortcut(key, ctrlKey, altKey, shiftKey, metaKey)?.let { command ->
+                webView.evaluateJavascript(
+                    "(function(){var c=new BroadcastChannel('vscodroid-linux-commands');" +
+                        "c.postMessage({command:" + KeyMapping.jsQuote(command) + "});c.close();})()", null
+                )
+                return
+            }
+        }
+        if ((ctrlKey || altKey || metaKey) && (key.length == 1 || key in setOf("Enter", "Backspace", "Delete"))) {
+            nativeShortcutCode(key)?.let { code ->
+                val state = navigationMetaState(ctrlKey, altKey, shiftKey, metaKey)
+                if (press(key, navigationEventsFor(code, nativeShortcutScanCode(key), state))) return
+            }
         }
         // A latched Shift changes WHICH character is typed, not whether it is
         // typed. The row offers no other route to `?`, `+`, `}` and the rest,
@@ -619,9 +619,14 @@ class KeyInjector(
                             cancelable: true,
                             composed: true
                         };
-                        target.dispatchEvent(new KeyboardEvent('keydown', init));
-                        target.dispatchEvent(new KeyboardEvent('keyup', init));
-                        releaseModifiers(target, init);
+                        if (window.__vscodroidNativeInput && (/^[a-zA-Z0-9]$/.test(init.key) ||
+                            ['Enter','Backspace','Delete','Tab','Escape','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(init.key) >= 0)) {
+                            window.__vscodroidNativeInput(Object.assign({op:'key'}, init)).catch(function(e){console.error(e.message);});
+                        } else {
+                            target.dispatchEvent(new KeyboardEvent('keydown', init));
+                            target.dispatchEvent(new KeyboardEvent('keyup', init));
+                            releaseModifiers(target, init);
+                        }
                         mod.ctrl = false;
                         mod.alt = false;
                         mod.shift = false;
@@ -716,9 +721,14 @@ class KeyInjector(
                         composed: true
                     };
                     function chord() {
-                        target.dispatchEvent(new KeyboardEvent('keydown', init));
-                        target.dispatchEvent(new KeyboardEvent('keyup', init));
-                        releaseModifiers(target, init);
+                        if (window.__vscodroidNativeInput && (/^[a-zA-Z0-9]$/.test(init.key) ||
+                            ['Enter','Backspace','Delete','Tab','Escape','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(init.key) >= 0)) {
+                            window.__vscodroidNativeInput(Object.assign({op:'key'}, init)).catch(function(e){console.error(e.message);});
+                        } else {
+                            target.dispatchEvent(new KeyboardEvent('keydown', init));
+                            target.dispatchEvent(new KeyboardEvent('keyup', init));
+                            releaseModifiers(target, init);
+                        }
                     }
                     // In the terminal the chord waits a task, for xterm's read
                     // of its textarea: the one the keyboard's keydown of 229

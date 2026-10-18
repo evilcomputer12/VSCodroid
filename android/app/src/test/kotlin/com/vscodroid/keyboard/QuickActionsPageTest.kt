@@ -4,6 +4,7 @@ import android.webkit.WebView
 import com.vscodroid.SourceScan
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.verify
@@ -195,7 +196,7 @@ class QuickActionsPageTest {
                 KeyInjector(
                     webView,
                     keyEventsFor = { error("a key was asked of the layout, so it would be typed") },
-                    navigationEventsFor = { _, _, _ -> error("a key was pressed as a real key") },
+                    navigationEventsFor = { _, _, _ -> listOf(mockk()) },
                 ),
                 button.value, button.fixedModifiers, latched,
             )
@@ -212,22 +213,15 @@ class QuickActionsPageTest {
                 .removePrefix("$name: ").removeSuffix(",")
 
         @Test
-        fun `each shortcut is announced to the workbench with its key and its own modifiers`() {
-            for ((button, want) in shortcuts(quickPage()).zip(expected)) {
+        fun `each fixed shortcut invokes the expected public workbench command`() {
+            val commands = listOf("workbench.action.showCommands", "workbench.action.quickOpen",
+                "workbench.action.terminal.toggleTerminal", "workbench.action.toggleSidebarVisibility",
+                "workbench.action.togglePanel", "workbench.action.files.save")
+            for ((button, command) in shortcuts(quickPage()).zip(commands)) {
                 val js = press(button)
-                assertEquals(KeyMapping.jsQuote(want.value), field(js, "key"), "${want.label}: key")
-                assertEquals(KeyMapping.jsQuote(want.code), field(js, "code"), "${want.label}: code")
-                assertEquals(want.keyCode.toString(), field(js, "keyCode"), "${want.label}: keyCode")
-                assertEquals(want.modifiers.ctrl.toString(), field(js, "ctrlKey"), "${want.label}: ctrlKey")
-                assertEquals(want.modifiers.alt.toString(), field(js, "altKey"), "${want.label}: altKey")
-                assertEquals(want.modifiers.shift.toString(), field(js, "shiftKey"), "${want.label}: shiftKey")
-                // The chord comes up after it, so the page is not left holding Ctrl.
-                assertTrue(
-                    js.contains("releaseModifiers(target, eventInit);"),
-                    "${want.label}: the modifiers the chord held are never released on the page",
-                )
+                assertTrue(js.contains("command:" + KeyMapping.jsQuote(command)), button.label)
+                assertFalse(js.contains("new KeyboardEvent"), button.label)
             }
-            // Announced, not pressed: no real key event went to the WebView.
             verify(exactly = 0) { webView.dispatchKeyEvent(any()) }
             verify(exactly = expected.size) { webView.evaluateJavascript(any(), any()) }
         }
@@ -245,36 +239,25 @@ class QuickActionsPageTest {
         @Test
         fun `a latched modifier neither joins a shortcut nor changes it`() {
             val everything = KeyModifiers(ctrl = true, alt = true, shift = true)
-            for ((button, want) in shortcuts(quickPage()).zip(expected)) {
-                val js = press(button, latched = everything)
-                assertEquals(want.modifiers.ctrl.toString(), field(js, "ctrlKey"), "${want.label}: ctrlKey")
-                assertEquals("false", field(js, "altKey"), "${want.label}: a latched Alt reached the chord")
-                assertEquals("false", field(js, "shiftKey"), "${want.label}: a latched Shift reached the chord")
-            }
-        }
-
-        @Test
-        fun `a shortcut key is dispatched at the body and never at the focused element`() {
-            // With every modifier latched as well, which must not change where it lands.
-            val latched = listOf(KeyModifiers(), KeyModifiers(ctrl = true, alt = true, shift = true))
             for (button in shortcuts(quickPage())) {
-                for (held in latched) {
-                    val js = press(button, held)
-                    assertEquals(
-                        "document.body", dispatchedAt(js),
-                        "'${button.label}' is dispatched at the focused element, where the terminal " +
-                            "takes Ctrl+B and Ctrl+S for the shell. It reads:\n$js",
-                    )
-                    assertFalse(
-                        js.contains("document.activeElement"),
-                        "'${button.label}' still names the focused element. It reads:\n$js",
-                    )
-                }
+                assertEquals(press(button), press(button, latched = everything))
             }
         }
 
         @Test
-        fun `an ordinary key under a latched modifier is dispatched at the focused element, not the body`() {
+        fun `fixed actions use the command channel independently of terminal focus`() {
+            for (button in shortcuts(quickPage())) {
+                val js = press(button)
+                assertTrue(js.contains("BroadcastChannel('vscodroid-linux-commands')"))
+                assertFalse(js.contains("document.activeElement"))
+                assertFalse(js.contains("new KeyboardEvent"))
+            }
+        }
+
+        @Test
+        fun `a refused native key uses the focused element for its legacy fallback`() {
+            mockkStatic(android.util.Log::class)
+            every { android.util.Log.w(any(), any<String>()) } returns 0
             // Every key of pages 1 to 5 that is announced and not typed or pressed:
             // with Ctrl latched, a character is a chord, and Tab, Escape and the
             // function keys always were. The navigation keys are real presses.

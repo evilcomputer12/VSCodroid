@@ -248,12 +248,14 @@ class KeyInjectorTextEntryTest {
     }
 
     @Test
-    fun `a modifier latched on the row keeps a character on the DOM path`() {
+    fun `a modifier latched on the row reaches the native Android key path`() {
         injector().injectKey("p", ctrlKey = true)
 
-        assertTrue(asked.isEmpty(), "Ctrl+P is a chord, and a chord is resolved by the workbench, not typed")
-        verify(exactly = 0) { webView.dispatchKeyEvent(any()) }
-        verify(exactly = 1) { webView.evaluateJavascript(any(), any()) }
+        assertTrue(asked.isEmpty(), "Ctrl+P must not type a plain p")
+        assertEquals(KeyEvent.KEYCODE_P, pressed.single().first)
+        assertEquals(KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON, pressed.single().third)
+        verify(exactly = 2) { webView.dispatchKeyEvent(any()) }
+        verify(exactly = 0) { webView.evaluateJavascript(any(), any()) }
     }
 
     @Test

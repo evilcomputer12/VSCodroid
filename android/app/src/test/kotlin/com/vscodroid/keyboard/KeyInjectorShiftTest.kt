@@ -3,6 +3,7 @@ package com.vscodroid.keyboard
 import android.webkit.WebView
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.unmockkAll
 import org.junit.jupiter.api.AfterEach
@@ -54,9 +55,10 @@ class KeyInjectorShiftTest {
     }
 
     private fun inject(key: String, shiftKey: Boolean = false): String {
-        // Ctrl for the reason given in the class comment: it is what keeps a
-        // character on the path that generates this script.
-        KeyInjector(webView).injectKey(key, ctrlKey = true, shiftKey = shiftKey)
+        // Force a refused native dispatch to exercise the legacy DOM fallback.
+        mockkStatic(android.util.Log::class)
+        every { android.util.Log.w(any(), any<String>()) } returns 0
+        KeyInjector(webView, navigationEventsFor = { _, _, _ -> listOf(mockk()) }).injectKey(key, ctrlKey = true, shiftKey = shiftKey)
         return script.captured
     }
 

@@ -3120,6 +3120,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun initBridge(port: Int) {
         val wv = webView ?: return
+        com.vscodroid.bridge.LinuxInputChannel.install(wv, port)
 
         // Skip re-initialization if this WebView already has the bridge. The port
         // is not part of the guard.
@@ -5670,7 +5671,30 @@ class MainActivity : AppCompatActivity() {
             """
             (function() {
                 if (window.__vscodroidClipboardPatched) return;
+                if (window.VSCodroidInput) {
+                    var pending = new Map(), serial = 0;
+                    VSCodroidInput.onmessage = function(event) {
+                        var answer;
+                        try { answer = JSON.parse(event.data); } catch (_) { return; }
+                        var waiter = pending.get(answer.id);
+                        if (!waiter) return;
+                        pending.delete(answer.id); clearTimeout(waiter.timer);
+                        if (answer.ok) waiter.resolve(answer.text || '');
+                        else waiter.reject(new Error(answer.error || 'Native input failed'));
+                    };
+                    window.__vscodroidNativeInput = function(request) {
+                        return new Promise(function(resolve, reject) {
+                            var id = String(++serial); request.id = id;
+                            var timer = setTimeout(function() {
+                                pending.delete(id); reject(new Error('Native input timed out'));
+                            }, 5000);
+                            pending.set(id, {resolve:resolve, reject:reject, timer:timer});
+                            VSCodroidInput.postMessage(JSON.stringify(request));
+                        });
+                    };
+                }
                 function fallback(reason) {
+                    if (window.__vscodroidNativeInput) return window.__vscodroidNativeInput({op:'read'});
                     var t = (window.__vscodroid || {}).authToken;
                     if (!t || typeof AndroidBridge === 'undefined') { throw reason; }
                     var text = AndroidBridge.readFromClipboard(t);
@@ -5689,6 +5713,14 @@ class MainActivity : AppCompatActivity() {
                 var proto = window.Clipboard && window.Clipboard.prototype;
                 if (proto && typeof proto.readText === 'function') {
                     proto.readText = wrap(proto.readText);
+                    if (typeof proto.writeText === 'function' && window.__vscodroidNativeInput) {
+                        var write = proto.writeText;
+                        proto.writeText = function(text) {
+                            var self = this;
+                            return Promise.resolve().then(function(){ return write.call(self, text); })
+                                .catch(function(){ return window.__vscodroidNativeInput({op:'write', text:String(text)}); });
+                        };
+                    }
                 } else if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
                     navigator.clipboard.readText = wrap(navigator.clipboard.readText.bind(navigator.clipboard));
                 } else {

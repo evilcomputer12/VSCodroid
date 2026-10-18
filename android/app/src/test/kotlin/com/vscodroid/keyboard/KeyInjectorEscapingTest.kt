@@ -3,6 +3,7 @@ package com.vscodroid.keyboard
 import android.webkit.WebView
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import io.mockk.slot
 import io.mockk.unmockkAll
 import org.json.JSONArray
@@ -48,7 +49,9 @@ class KeyInjectorEscapingTest {
         // JavaScript, so there would be no script to capture. A modifier makes
         // any key a chord, and a chord is what this generated source is for; the
         // escaping it checks is identical either way.
-        KeyInjector(webView).injectKey(key, ctrlKey = true)
+        mockkStatic(android.util.Log::class)
+        every { android.util.Log.w(any(), any<String>()) } returns 0
+        KeyInjector(webView, navigationEventsFor = { _, _, _ -> listOf(mockk()) }).injectKey(key, ctrlKey = true)
         return script.captured
     }
 
