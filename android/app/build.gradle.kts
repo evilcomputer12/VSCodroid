@@ -135,7 +135,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.vscodroid"
+        applicationId = "com.vscodroid.linux"
         minSdk = 30
         // Held at 36 on purpose, and lint's OldTargetApi is answered rather than
         // ignored. Targeting 37 blocks local network access by default, so a dev
@@ -149,7 +149,7 @@ android {
         @Suppress("OldTargetApi")
         targetSdk = 36
         versionCode = 16
-        versionName = "1.5.0"
+        versionName = "1.5.0-linux.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

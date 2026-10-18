@@ -188,3 +188,9 @@ toolchain-zips/
 # the generator exists to remove.
 /docs/site/guide.html
 /docs/site/privacy-policy.html
+
+# Linux Edition build artifacts and staged extension
+/output/
+/linux/extension/__pycache__/
+/tests/linux/__pycache__/
+/android/app/src/main/assets/extensions/vscodroid.vscodroid-linux-0.1.0/

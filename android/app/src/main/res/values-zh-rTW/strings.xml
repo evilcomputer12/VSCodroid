@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">VSCodroid</string>
+    <string name="app_name">VSCodroid Linux</string>
     <string name="notification_channel_name">VSCodroid 伺服器</string>
     <string name="notification_channel_description">讓本機開發伺服器持續執行</string>
     <string name="notification_title">VSCodroid 執行中</string>

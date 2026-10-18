@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">VSCodroid</string>
+    <string name="app_name">VSCodroid Linux</string>
     <string name="notification_channel_name">Servidor do VSCodroid</string>
     <string name="notification_channel_description">Mantém o servidor de desenvolvimento local em execução</string>
     <string name="notification_title">O VSCodroid está em execução</string>

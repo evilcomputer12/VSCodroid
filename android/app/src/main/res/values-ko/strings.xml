@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">VSCodroid</string>
+    <string name="app_name">VSCodroid Linux</string>
     <string name="notification_channel_name">VSCodroid 서버</string>
     <string name="notification_channel_description">로컬 개발 서버를 계속 실행합니다</string>
     <string name="notification_title">VSCodroid 실행 중</string>

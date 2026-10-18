@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">VSCodroid</string>
+    <string name="app_name">VSCodroid Linux</string>
     <string name="notification_channel_name">VSCodroid Sunucusu</string>
     <string name="notification_channel_description">Yerel geliştirme sunucusunu çalışır durumda tutar</string>
     <string name="notification_title">VSCodroid çalışıyor</string>
